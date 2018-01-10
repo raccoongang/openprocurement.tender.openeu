@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from openprocurement.api.utils import get_now, raise_operation_error
 from openprocurement.api.validation import validate_data, OPERATIONS
+from openprocurement.tender.core.utils import get_operation_type
 from openprocurement.tender.openeu.models import Qualification
 
 def validate_patch_qualification_data(request):
@@ -75,3 +76,22 @@ def validate_add_complaint_not_in_qualification_period(request):
        (tender.qualificationPeriod.startDate and tender.qualificationPeriod.startDate > get_now() or
                 tender.qualificationPeriod.endDate and tender.qualificationPeriod.endDate < get_now()):
         raise_operation_error(request, 'Can add complaint only in qualificationPeriod')
+
+
+# cancellation
+def validate_cancellation(request):
+    tender = request.validated['tender']
+    cancellation = request.validated['cancellation']
+    if not cancellation.relatedLot and tender.lots:
+        active_lots = [i.id for i in tender.lots if i.status == 'active']
+        statuses = [set([i.status for i in tender.awards or tender.qualifications if i.lotID == lot_id]) for lot_id in
+                    active_lots]
+        block_cancellation = any([not i.difference({'unsuccessful', 'cancelled'}) if i else False for i in statuses])
+    elif cancellation.relatedLot and tender.lots or not cancellation.relatedLot and not tender.lots:
+        statuses = set([i.status for i in tender.awards or tender.qualifications if i.lotID == cancellation.relatedLot])
+        block_cancellation = not statuses.difference({'unsuccessful', 'cancelled'}) if statuses else False
+    else:
+        block_cancellation = False
+    if block_cancellation:
+        raise_operation_error(request, 'Can\'t {} cancellation if all {} is unsuccessful'.format(
+            get_operation_type(request), 'awards' if tender.awards else 'qualifications'))
