@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from openprocurement.api.utils import get_now, raise_operation_error
 from openprocurement.api.validation import validate_data, OPERATIONS
-from openprocurement.tender.core.utils import get_operation_type
 from openprocurement.tender.openeu.models import Qualification
 
 def validate_patch_qualification_data(request):
@@ -94,4 +93,4 @@ def validate_cancellation(request):
         block_cancellation = False
     if block_cancellation:
         raise_operation_error(request, 'Can\'t {} cancellation if all {} is unsuccessful'.format(
-            get_operation_type(request), 'awards' if tender.awards else 'qualifications'))
+            OPERATIONS.get(request.method), 'awards' if tender.awards else 'qualifications'))
